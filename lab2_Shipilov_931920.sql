@@ -87,7 +87,7 @@ ALTER TABLE pd_order_details
 ADD CONSTRAINT fk_product_id FOREIGN KEY (product_id) REFERENCES pd_products (product_id);
 -- 8. Добавьте ограничение целостности, гарантирующие исполнение условия: 
 -- начальником может быть только реально существующий сотрудник.
-ALTER TABLE pd_employees ADD CONSTRAINT manager_is_an_employee FOREIGN KEY (manager_id) REFERENCES pd_employees (emp_id)
+ALTER TABLE pd_employees ADD CONSTRAINT manager_is_an_employee FOREIGN KEY (manager_id) REFERENCES pd_employees (emp_id);
 -- 9. Добавьте ограничения целостности, гарантирующие следующих исполнение условия: 
 -- наименования категории, наименования продуктов, имена сотрудников, имена заказчиков, 
 -- названия районов, названия улиц, номера домов не могут быть пустыми.
