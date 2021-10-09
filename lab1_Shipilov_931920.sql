@@ -192,7 +192,7 @@ FROM (
                 FROM pd_order_details od
                     INNER JOIN pd_products p ON p.product_id = od.product_id
                     INNER JOIN pd_orders o ON o.order_id = od.order_id
-                WHERE p.category_id = 1
+                WHERE p.category_id = (SELECT category_id FROM pd_categories WHERE lower(category_name) LIKE '%пицца%')
                     AND (
                         p.hot = '1'
                         OR p.vegan = '1'
