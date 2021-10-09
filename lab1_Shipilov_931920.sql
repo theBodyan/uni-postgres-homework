@@ -10,20 +10,20 @@ WHERE category_id = 1;
 SELECT product_name,
     description
 FROM pd_products
-WHERE description LIKE '%Моцарелла%';
+WHERE lower(description) LIKE '%моцарелла%';
 -- 3.Список домов по улицам Красноармейская и Кирова.Выборка должна представлять список адресов в формате < название улицы >,
 -- дом < номер дома > кв.< номер квартиры >.
 SELECT street || ', дом ' || house_number || ' кв ' || apartment as список_домов
 FROM pd_locations
-WHERE street LIKE '%Красноармейская%'
-    OR street LIKE '%Кирова%';
+WHERE lower(street) LIKE '%красноармейская%'
+    OR lower(street) LIKE '%кирова%';
 -- 4. Список всех острых или вегетарианских пицц с базиликом. Выборка должна содержать только наименование, описание, номер категории.
 SELECT product_name,
     description,
     category_id
 FROM pd_products
 WHERE category_id = 1
-    AND description LIKE '%базилик%'
+    AND lower(description) LIKE '%базилик%'
     AND (
         hot = '1'
         OR vegan = '1'
@@ -39,8 +39,18 @@ SELECT CASE
 FROM pd_employees
 WHERE post = 'Курьер'
     AND (
-        name LIKE '%а%'
-        AND name NOT LIKE '%а%а%а%'
+        (
+            name LIKE '%а%'
+            AND name NOT LIKE '%а%а%а%'
+        )
+        OR (
+            last_name LIKE '%а%'
+            AND last_name NOT LIKE '%а%а%а%'
+        )
+        OR (
+            patronymic LIKE '%а%'
+            AND patronymic NOT LIKE '%а%а%а%'
+        )
     )
     AND last_name LIKE '%ва';
 -- 6. Список всех острых пицц стоимостью от 460 до 510, если пицц  при этом ещё и вегетарианская, то стоимость может доходить до 560. 
@@ -63,12 +73,25 @@ WHERE category_id = 1
         )
         AND VEGAN = '1'
     );
--- 7. Для каждого продукта рассчитать, на сколько процентов можно поднять цену,  так что бы первая цифра цены не поменялась. Выборка должна содержать только наименование, цену, процент повышения цены до 3-х знаков после запятой, размер возможного повышения с учётом копеек и размер возможного повышения в рублях. 
+-- 7. Для каждого продукта рассчитать, на сколько процентов можно поднять цену,  
+-- так что бы первая цифра цены не поменялась. Выборка должна содержать только наименование, цену, 
+-- процент повышения цены до 3-х знаков после запятой, размер возможного повышения с учётом копеек
+-- и размер возможного повышения в рублях. 
 SELECT product_name AS наименование,
     price AS цена,
-    round((99.99 - price %100) /(price / 100), 3) AS процент_повышения,
-    99.99 - round(price %100, 2) AS повышение_с_копейками,
-    floor(99.99 - price %100) AS повышение_в_рублях
+    round(
+        (
+            ((10 ^(floor(log(price)))) - 0.01) - price % (10 ^(floor(log(price))))
+        ) / (price / (10 ^(floor(log(price))))),
+        3
+    ) AS процент_повышения,
+    round(
+        ((10 ^(floor(log(price)))) - 0.01) - price % (10 ^(floor(log(price)))),
+        2
+    ) AS повышение_с_копейками,
+    floor(
+        ((10 ^(floor(log(price)))) - 0.01) - price % (10 ^(floor(log(price))))
+    ) AS повышение_в_рублях
 FROM pd_products;
 -- 8. Дополнительная наценка (процент наценки уже заложен в цену) для острых продуктов составляет - 1,5% ,
 -- для вегетарианских - 1%, для острых и вегетарианских - 2%
@@ -101,15 +124,11 @@ WHERE CASE
     END;
 -- 9. Список всех продуктов с их типами и описанием. Выборка должна содержать только тип (наименование типа), 
 -- название продукта и его описание. 
-SELECT CASE
-        WHEN category_id = 1 THEN 'Пицца'
-        WHEN category_id = 2 THEN 'Напитки'
-        WHEN category_id = 3 THEN 'Десерты'
-        WHEN category_id = 4 THEN 'Сэндвич-ролл'
-    END,
-    product_name,
-    description
-FROM pd_products;
+SELECT c.category_name,
+    p.product_name,
+    p.description
+FROM pd_products p
+    INNER JOIN pd_categories c ON p.category_id = c.category_id;
 -- 10. Список всех продуктов, которых в одном заказе хотя бы раз было более 9 штук. Выборка должна содержать только наименование и цену. 
 SELECT DISTINCT product_name,
     price
@@ -125,7 +144,8 @@ WHERE EXTRACT(
         MONTH
         FROM o.order_date
     ) IN (9, 10)
-    AND l.area = 'Октябрьский';
+    AND l.area = 'Октябрьский'
+    AND o.order_state != 'CANCEL';
 -- 12. Список имён все страдников и с указанием имени начальника. Для начальников в соотв. Столбце выводить – ‘шеф’. 
 SELECT e1.name,
     CASE
@@ -137,18 +157,28 @@ SELECT e1.name,
         )
     END
 FROM pd_employees e1;
--- 13. Список всех заказов, которые были доставлены под руководствам Баранова (или им самим). В списке также должны отображаться: номер заказа, имя курьера и район (‘нет’ – если район не известен).
+-- 13. Список всех заказов, которые были доставлены под руководствам Баранова (или им самим). 
+-- В списке также должны отображаться: номер заказа, имя курьера и район (‘нет’ – если район не известен).
 SELECT order_id AS номер_заказа,
     e.name,
     CASE
         WHEN l.area IS NOT null THEN l.area
         ELSE 'нет'
-    END
+    END AS area
 FROM (
-        SELECT *
+        SELECT emp_id,
+            name
         FROM pd_employees
-        WHERE manager_id = 1
-            OR emp_id = 1
+        where manager_id = (
+                select emp_id
+                from pd_employees
+                where lower(last_name) LIKE 'баранов%'
+            )
+            OR emp_id = (
+                select emp_id
+                from pd_employees
+                where lower(last_name) LIKE 'баранов%'
+            )
     ) e
     INNER JOIN pd_orders o ON e.emp_id = o.emp_id
     INNER JOIN pd_locations l ON o.location_id = l.location_id;
