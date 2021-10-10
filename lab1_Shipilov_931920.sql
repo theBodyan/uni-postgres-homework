@@ -138,14 +138,21 @@ WHERE o_d.quantity > 9;
 -- 11. Список всех заказчиков, заказывавших пиццу в октябрьском районе в сентябре или октябре. Выборка должна содержать только полные имена одной стройкой.   
 SELECT DISTINCT name || ' ' || last_name || ' ' || patronymic
 FROM pd_customers c
-    INNER JOIN pd_orders o ON o.cust_id = c.cust_id
+    INNER JOIN pd_orders o ON c.cust_id = o.cust_id
     INNER JOIN pd_locations l ON o.location_id = l.location_id
-WHERE EXTRACT(
+    INNER JOIN pd_order_details o_d ON o.order_id = o_d.order_id
+    INNER JOIN pd_products p ON o_d.product_id = p.product_id
+    INNER JOIN pd_categories cat ON p.category_id = cat.category_id
+WHERE cat.category_id = (
+        SELECT category_id
+        FROM pd_categories
+        WHERE lower(category_name) LIKE '%пицц%'
+    )
+    AND EXTRACT(
         MONTH
         FROM o.order_date
     ) IN (9, 10)
-    AND l.area = 'Октябрьский'
-    AND o.order_state != 'CANCEL';
+    AND l.area = 'Октябрьский';
 -- 12. Список имён все страдников и с указанием имени начальника. Для начальников в соотв. Столбце выводить – ‘шеф’. 
 SELECT e1.name,
     CASE
